@@ -9,5 +9,5 @@ read_globals = {
   "UnitIsGroupLeader", "UnitInParty", "UnitInRaid", "GetTime", "wipe", "RAID_CLASS_COLORS", "GameTooltip", "UIParent",
   "CreateDataProvider", "CreateScrollBoxListLinearView", "ScrollUtil", "ScrollBoxConstants",
   "ButtonFrameTemplate_HidePortrait", "ButtonFrameTemplate_HideAttic", "ButtonFrameTemplate_ShowButtonBar",
-  "ChatFrameUtil", "WHO_LIST_FORMAT", "WHO_LIST_GUILD_FORMAT", "WorldFrame",
+  "ChatFrameUtil", "WHO_LIST_FORMAT", "WHO_LIST_GUILD_FORMAT",
 }

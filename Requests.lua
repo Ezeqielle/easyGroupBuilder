@@ -3,7 +3,7 @@ local _, ns = ...
 -- Join requests: while your group is listed in the group finder and you lead it (or list
 -- alone), every player who whispers you is added to the list with their class (from the
 -- whisper's GUID). Level and zone need a /who, which the game only allows right after a
--- click or key press: AutoWho sends one on your next key press / world click (at most one
+-- click or key press: AutoWho sends one on your next movement / action bar key or world click (at most one
 -- every few seconds), and the window keeps a "Who" button per player. The answer comes as
 -- a system chat line (see ParseWhoLine), hidden from chat when it answers our lookup.
 -- Players leave the list when they join.
@@ -135,24 +135,41 @@ function Requests.NextLookup()
   end
 end
 
+local function Debug(...)
+  if ns.db and ns.db.settings.debug then ns:Print("|cff888888[debug]|r", ...) end
+end
+Requests.Debug = Debug
+
 --- Automatic lookups: the game only allows /who right after a key press or a click, so
---- this runs on every key press / world click and sends at most one /who per cooldown.
-function Requests.AutoWho()
+--- this runs from the movement / action bar / mouse bindings and sends at most one /who
+--- per cooldown.
+function Requests.AutoWho(source)
   if ns.db and ns.db.settings.autoWho == false then return end
   if GetTime() - lastWho < WHO_COOLDOWN then return end
   if not Requests.IsActive() and not (ns.RequestsUI and ns.RequestsUI.testMode) then return end
   local entry = Requests.NextLookup()
-  if entry then Requests.Who(entry.name) end
+  if not entry then return end
+  Debug("auto /who", entry.short, "from", source or "?", "try", (entry.whoTries or 0) + 1)
+  Requests.Who(entry.name)
 end
 
--- Key presses: an invisible frame that sees every key and passes it on to the game.
--- SetPropagateKeyboardInput is set once here (at load, out of combat).
-local keys = CreateFrame("Frame", "EasyGroupBuilderKeyWatcher", UIParent)
-keys:EnableKeyboard(true)
-keys:SetPropagateKeyboardInput(true)
-keys:SetScript("OnKeyDown", function() Requests.AutoWho() end)
--- Clicks in the 3D world (moving with the mouse, targeting, looting).
-if WorldFrame then WorldFrame:HookScript("OnMouseDown", function() Requests.AutoWho() end) end
+-- The key bindings run Lua (Bindings_Camelot.xml: MoveForwardStart(), ActionButtonDown(1),
+-- CameraOrSelectOrMoveStart() for a left click in the world, ...), so a hook on those
+-- functions runs inside the key press / click itself, like the Who button. hooksecurefunc
+-- runs after the original and doesn't taint it.
+local BINDING_FUNCTIONS = {
+  "MoveForwardStart", "MoveBackwardStart", "StrafeLeftStart", "StrafeRightStart",
+  "TurnLeftStart", "TurnRightStart", "JumpOrAscendStart", "MoveAndSteerStart", "ToggleAutoRun",
+  "TurnOrActionStart", "CameraOrSelectOrMoveStart", "ActionButtonDown", "MultiActionButtonDown",
+}
+local hooked = {}
+for _, name in ipairs(BINDING_FUNCTIONS) do
+  if type(_G[name]) == "function" then
+    hooksecurefunc(name, function() Requests.AutoWho(name) end)
+    table.insert(hooked, name)
+  end
+end
+Requests.hookedBindings = hooked
 
 --- Takes level / zone / class from any /who result that matches a request.
 function Requests.OnWhoResults()
@@ -238,6 +255,7 @@ function Requests.OnSystemMessage(message)
   local entry = name and Requests.Find(name)
   if not entry then return false end
   local ours = entry.looking
+  Debug("/who answer", entry.short, level, zone)
   entry.level, entry.zone, entry.looking = level, zone, nil
   Notify()
   if ours then hideTotalUntil = GetTime() + 2 end

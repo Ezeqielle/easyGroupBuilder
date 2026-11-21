@@ -37,8 +37,12 @@ SlashCmdList.EASYGROUPBUILDER = function(msg)
     if arg == "on" or arg == "off" then ns.db.settings.autoWho = (arg == "on") end
     ns:Print("automatic level / zone lookup: " .. (ns.db.settings.autoWho == false and "off" or "on")
       .. " (/egb autowho on|off)")
+  elseif cmd == "debug" then
+    ns.db.settings.debug = not ns.db.settings.debug
+    ns:Print("debug " .. (ns.db.settings.debug and "on" or "off") .. " - automatic lookups hooked on "
+      .. #ns.Requests.hookedBindings .. " bindings, listed: " .. tostring(ns.Requests.IsActive()))
   elseif cmd == "help" then
-    ns:Print("/egb - show / hide the join requests window | /egb test - fill it with fake players | /egb clear | /egb autowho on|off")
+    ns:Print("/egb - show / hide the join requests window | /egb test - fill it with fake players | /egb clear | /egb autowho on|off | /egb debug")
   else
     ns:Print("unknown command - try /egb help")
   end
