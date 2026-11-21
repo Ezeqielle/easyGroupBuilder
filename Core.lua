@@ -32,8 +32,13 @@ SlashCmdList.EASYGROUPBUILDER = function(msg)
     ns.RequestsUI.Test()
   elseif cmd == "clear" then
     ns.Requests.Clear()
+  elseif cmd == "autowho" then
+    local arg = (msg:match("^%S+%s+(%S+)") or ""):lower()
+    if arg == "on" or arg == "off" then ns.db.settings.autoWho = (arg == "on") end
+    ns:Print("automatic level / zone lookup: " .. (ns.db.settings.autoWho == false and "off" or "on")
+      .. " (/egb autowho on|off)")
   elseif cmd == "help" then
-    ns:Print("/egb - show / hide the join requests window | /egb test - fill it with fake players | /egb clear")
+    ns:Print("/egb - show / hide the join requests window | /egb test - fill it with fake players | /egb clear | /egb autowho on|off")
   else
     ns:Print("unknown command - try /egb help")
   end

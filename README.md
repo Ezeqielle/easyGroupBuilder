@@ -9,8 +9,10 @@ every player who whispers you is added to the **Join requests** window, which op
 
 - **Name** (in class color), **Class**, **Level** and **Zone**, one line per player.
   Five lines are visible; scroll for the others. Hover a line to read their whisper.
-- **Who** looks up the player's level and zone (the game only allows a /who from a click,
-  and about one every few seconds). Class comes straight from the whisper.
+- **Level and zone fill in by themselves**: the game only allows a /who right after a key
+  press or a click, so the addon sends one on your next key press or click in the world
+  (one every 3 seconds, oldest request first, hidden from chat). **Who** does it by hand.
+  Class comes straight from the whisper. Turn the automatic lookup off with `/egb autowho off`.
 - **Invite** invites them; the line shows *Invited*, then leaves the list when they join.
 - **X** removes a line, **Clear** empties the list. Requests older than 30 minutes go away,
   and the list is cleared when your listing ends.
@@ -22,6 +24,7 @@ The window can be moved (drag it) and closed with Escape.
 - `/egb` — show / hide the join requests window.
 - `/egb test` — fill the window with fake players, to try it out.
 - `/egb clear` — empty the list.
+- `/egb autowho on|off` — automatic level / zone lookup (on by default).
 - `/egb help` — list the commands.
 
 ## Install

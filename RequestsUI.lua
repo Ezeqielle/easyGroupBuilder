@@ -5,8 +5,8 @@ local Requests = ns.Requests
 -- listed: name (class color), class, level, zone, Who (level + zone lookup), Invite and
 -- remove. Five rows visible, the rest by scrolling. Hover a row to read the whisper.
 -- Templates checked in the Forever UI source: ButtonFrameTemplate (+ HidePortrait,
--- SetTitle), WowScrollBoxList, MinimalScrollBar, UIPanelButtonTemplate,
--- UIPanelCloseButton.
+-- HideAttic, ShowButtonBar, SetTitle), WowScrollBoxList, MinimalScrollBar,
+-- UIPanelButtonTemplate, UIPanelCloseButton.
 
 local UI = {}
 ns.RequestsUI = UI
@@ -86,8 +86,10 @@ local function InitRow(row, entry)
   row.stripe:SetColorTexture(1, 1, 1, (entry.index % 2 == 0) and 0.04 or 0)
   row.name:SetText(ClassColor(entry) .. entry.short .. "|r")
   row.class:SetText(entry.class or "|cff888888?|r")
-  row.level:SetText(entry.level and tostring(entry.level) or (entry.looking and "..." or "|cff888888?|r"))
-  row.zone:SetText(entry.zone or (entry.looking and "..." or "|cff888888?|r"))
+  local waiting = entry.looking and GetTime() - entry.looking < 10
+  local unknown = waiting and "..." or "|cff888888?|r"
+  row.level:SetText(entry.level and tostring(entry.level) or unknown)
+  row.zone:SetText(entry.zone or unknown)
   row.who:SetShown(not entry.level)
   row.invite:SetText(entry.invited and "Invited" or "Invite")
 end
@@ -113,7 +115,10 @@ end
 local function Build()
   window = CreateFrame("Frame", "EasyGroupBuilderRequestsFrame", UIParent, "ButtonFrameTemplate")
   ButtonFrameTemplate_HidePortrait(window)
-  window:SetSize(WIDTH, 92 + VISIBLE_ROWS * ROW_HEIGHT)
+  -- No attic (it left an empty band above the headers), a button bar for Clear / status.
+  ButtonFrameTemplate_HideAttic(window)
+  ButtonFrameTemplate_ShowButtonBar(window)
+  window:SetSize(WIDTH, 86 + VISIBLE_ROWS * ROW_HEIGHT)
   local p = ns.db and ns.db.settings.requestsPoint
   if p then window:SetPoint(p[1], UIParent, p[2], p[3], p[4]) else window:SetPoint("CENTER", 0, 120) end
   window:SetFrameStrata("HIGH")
@@ -155,12 +160,12 @@ local function Build()
   emptyText:SetText("Players who whisper you while your group is listed show up here.")
 
   statusText = window:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-  statusText:SetPoint("BOTTOMLEFT", 12, 10)
+  statusText:SetPoint("BOTTOMLEFT", 12, 9)
   statusText:SetPoint("RIGHT", -100, 0)
   statusText:SetJustifyH("LEFT")
 
   local clear = SmallButton(window, "Clear", 70)
-  clear:SetPoint("BOTTOMRIGHT", -10, 6)
+  clear:SetPoint("BOTTOMRIGHT", -8, 4)
   clear:SetScript("OnClick", function() Requests.Clear() end)
 
   window:SetScript("OnHide", function() UI.testMode = false end)

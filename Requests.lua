@@ -2,8 +2,11 @@ local _, ns = ...
 
 -- Join requests: while your group is listed in the group finder and you lead it (or list
 -- alone), every player who whispers you is added to the list with their class (from the
--- whisper's GUID). Level and zone need a /who, which the game only allows from a click,
--- so the window has a "Who" button per player. Players leave the list when they join.
+-- whisper's GUID). Level and zone need a /who, which the game only allows right after a
+-- click or key press: AutoWho sends one on your next key press / world click (at most one
+-- every few seconds), and the window keeps a "Who" button per player. The answer comes as
+-- a system chat line (see ParseWhoLine), hidden from chat when it answers our lookup.
+-- Players leave the list when they join.
 --
 -- Forever runs the "camelot" game type, which loads Blizzard_GroupFinder_VanillaStyle:
 -- people browse listings and whisper the leader (ChatFrameUtil.SendTell(leaderName)).
@@ -104,18 +107,52 @@ function Requests.Invite(name)
   Notify()
 end
 
---- /who for one player (call from a click: the game requires a hardware event).
+--- /who for one player (call from a click or key press: the game requires a hardware
+--- event).
 function Requests.Who(name)
   local entry = Requests.Find(name)
   if not entry then return false, "not in the list" end
   local wait = WHO_COOLDOWN - (GetTime() - lastWho)
   if wait > 0 then return false, ("wait %d s between two lookups"):format(math.ceil(wait)) end
   lastWho = GetTime()
-  entry.looking = true
+  entry.looking = GetTime()
+  entry.whoTries = (entry.whoTries or 0) + 1
   C_FriendList.SendWho(('n-"%s"'):format(entry.short))
   Notify()
   return true
 end
+
+local WHO_TIMEOUT = 10  -- no answer after this: the lookup can be tried again
+local WHO_MAX_TRIES = 2 -- offline / hidden players aren't asked forever
+
+--- The oldest request still without a level that can be looked up now.
+function Requests.NextLookup()
+  for _, entry in ipairs(Requests.list) do
+    if not entry.level and (entry.whoTries or 0) < WHO_MAX_TRIES
+      and (not entry.looking or GetTime() - entry.looking > WHO_TIMEOUT) then
+      return entry
+    end
+  end
+end
+
+--- Automatic lookups: the game only allows /who right after a key press or a click, so
+--- this runs on every key press / world click and sends at most one /who per cooldown.
+function Requests.AutoWho()
+  if ns.db and ns.db.settings.autoWho == false then return end
+  if GetTime() - lastWho < WHO_COOLDOWN then return end
+  if not Requests.IsActive() and not (ns.RequestsUI and ns.RequestsUI.testMode) then return end
+  local entry = Requests.NextLookup()
+  if entry then Requests.Who(entry.name) end
+end
+
+-- Key presses: an invisible frame that sees every key and passes it on to the game.
+-- SetPropagateKeyboardInput is set once here (at load, out of combat).
+local keys = CreateFrame("Frame", "EasyGroupBuilderKeyWatcher", UIParent)
+keys:EnableKeyboard(true)
+keys:SetPropagateKeyboardInput(true)
+keys:SetScript("OnKeyDown", function() Requests.AutoWho() end)
+-- Clicks in the 3D world (moving with the mouse, targeting, looting).
+if WorldFrame then WorldFrame:HookScript("OnMouseDown", function() Requests.AutoWho() end) end
 
 --- Takes level / zone / class from any /who result that matches a request.
 function Requests.OnWhoResults()
@@ -132,6 +169,85 @@ function Requests.OnWhoResults()
     end
   end
   if changed then Notify() end
+end
+
+-- In Forever the /who answer for one player comes as a system chat line (seen in game:
+-- "[Beren Burger]: Level 38 High Order Skyborne Druid <Guild> - Sunken Hollow", then
+-- "1 player total"), not as WHO_LIST_UPDATE. It is read with a pattern built from the
+-- client's own format strings (localized), falling back to the English ones.
+local WHO_FORMATS = {
+  WHO_LIST_GUILD_FORMAT or "|Hplayer:%s|h[%s]|h: Level %d %s %s <%s> - %s",
+  WHO_LIST_FORMAT or "|Hplayer:%s|h[%s]|h: Level %d %s %s - %s",
+}
+
+--- "a %s b %d" -> Lua pattern, the argument number of each capture (handles "%2$s"),
+--- and which argument is the number (the level).
+local function FormatToPattern(fmt)
+  local parts, order, i, n, numberArg = { "^" }, {}, 1, 0, nil
+  local function escape(text) return (text:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%0")) end
+  while true do
+    local s, e, pos, kind = fmt:find("%%(%d*)%$?([sd])", i)
+    if not s then break end
+    table.insert(parts, escape(fmt:sub(i, s - 1)))
+    table.insert(parts, kind == "d" and "(%d+)" or "(.-)")
+    n = n + 1
+    local arg = tonumber(pos) or n
+    table.insert(order, arg)
+    if kind == "d" then numberArg = arg end
+    i = e + 1
+  end
+  table.insert(parts, escape(fmt:sub(i)) .. "$")
+  return table.concat(parts), order, numberArg
+end
+
+-- Each format with the player link, and without it ("[Name]: Level ..."), in case the
+-- line reaches us without the link codes.
+local whoPatterns = {}
+for _, fmt in ipairs(WHO_FORMATS) do
+  for _, variant in ipairs({ fmt, (fmt:gsub("|Hplayer:%%s|h%[%%s%]|h", "[%%s]")) }) do
+    local pattern, order, numberArg = FormatToPattern(variant)
+    if numberArg then
+      table.insert(whoPatterns, { pattern = pattern, order = order, level = numberArg })
+    end
+  end
+end
+Requests.FormatToPattern = FormatToPattern
+
+--- Reads a /who line: name (just before the level), level, zone (the last argument).
+function Requests.ParseWhoLine(message)
+  for _, p in ipairs(whoPatterns) do
+    local caps = { message:match(p.pattern) }
+    if #caps > 0 then
+      local args = {}
+      for k, v in ipairs(caps) do args[p.order[k]] = v end
+      return args[p.level - 1], tonumber(args[p.level]), args[#p.order]
+    end
+  end
+end
+
+local hideTotalUntil = 0
+
+--- System chat line: fills the request it answers. True when it answered our own lookup
+--- (the chat filter then hides it and the "1 player total" line after it).
+function Requests.OnSystemMessage(message)
+  if GetTime() < hideTotalUntil and message:match("^%d+ ") then
+    hideTotalUntil = 0
+    return true
+  end
+  local name, level, zone = Requests.ParseWhoLine(message)
+  local entry = name and Requests.Find(name)
+  if not entry then return false end
+  local ours = entry.looking
+  entry.level, entry.zone, entry.looking = level, zone, nil
+  Notify()
+  if ours then hideTotalUntil = GetTime() + 2 end
+  return ours and true or false
+end
+
+if ChatFrameUtil and ChatFrameUtil.AddMessageEventFilter then
+  ChatFrameUtil.AddMessageEventFilter("CHAT_MSG_SYSTEM", function(_, _, message)
+    return Requests.OnSystemMessage(message)
+  end)
 end
 
 local frame = CreateFrame("Frame")
