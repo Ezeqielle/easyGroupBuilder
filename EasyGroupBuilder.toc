@@ -1,0 +1,8 @@
+## Interface: 16001
+## Title: EasyGroupBuilder
+## Notes: Build groups easily.
+## Author: Ezeqielle
+## Version: @project-version@
+## SavedVariables: EasyGroupBuilderDB
+
+Core.lua
