@@ -1,0 +1,26 @@
+name: Release
+
+# One tag (vX.Y.Z) = one GitHub release with the addon zip + release.json (what WowUp's
+# GitHub source reads; flavor "forever"). Same setup as UltimateTrader's addon job.
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  addon:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      # Creates the GitHub release for the tag and uploads the zip + release.json.
+      # -g forever names the zip "*-forever.zip": WowUp's filename fallback needs that
+      # when it can't read release.json (e.g. private repos).
+      - uses: BigWigsMods/packager@v2
+        with:
+          args: -g forever
+        env:
+          GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}

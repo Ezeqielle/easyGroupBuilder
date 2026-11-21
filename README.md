@@ -26,4 +26,10 @@ The window can be moved (drag it) and closed with Escape.
 
 ## Install
 
-Copy the `EasyGroupBuilder` folder into `World of Warcraft/_forever_/Interface/AddOns/`.
+Download `EasyGroupBuilder-vX.Y.Z-forever.zip` from the latest GitHub release and unzip it into
+`World of Warcraft/_forever_/Interface/AddOns/` (or add the repo as a GitHub source in WowUp).
+
+## Release
+
+Push a `vX.Y.Z` tag: the Release workflow packages the addon (BigWigsMods/packager, version
+from the tag into the toc) and publishes the zip and release.json on GitHub.

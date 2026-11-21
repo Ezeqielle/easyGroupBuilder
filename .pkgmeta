@@ -1,0 +1,6 @@
+package-as: EasyGroupBuilder
+
+ignore:
+  - .github
+  - .luacheckrc
+  - README.md
