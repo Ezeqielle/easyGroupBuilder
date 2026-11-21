@@ -1,8 +1,10 @@
 ## Interface: 16001
 ## Title: EasyGroupBuilder
-## Notes: Build groups easily.
+## Notes: Lists the players who whisper you while your group is listed in the group finder, with class, level, zone and an invite button.
 ## Author: Ezeqielle
 ## Version: @project-version@
 ## SavedVariables: EasyGroupBuilderDB
 
 Core.lua
+Requests.lua
+RequestsUI.lua

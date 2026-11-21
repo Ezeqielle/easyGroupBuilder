@@ -1,6 +1,6 @@
 local addonName, ns = ...
 
--- Saved data (account-wide) and the /egb command. Features come next.
+-- Saved data (account-wide) and the /egb command.
 
 local function InitDB()
   EasyGroupBuilderDB = EasyGroupBuilderDB or {}
@@ -26,8 +26,14 @@ SLASH_EASYGROUPBUILDER1 = "/egb"
 SLASH_EASYGROUPBUILDER2 = "/easygroupbuilder"
 SlashCmdList.EASYGROUPBUILDER = function(msg)
   local cmd = (msg:match("^(%S*)") or ""):lower()
-  if cmd == "" or cmd == "help" then
-    ns:Print("commands: /egb help")
+  if cmd == "" or cmd == "show" then
+    ns.RequestsUI.Toggle()
+  elseif cmd == "test" then
+    ns.RequestsUI.Test()
+  elseif cmd == "clear" then
+    ns.Requests.Clear()
+  elseif cmd == "help" then
+    ns:Print("/egb - show / hide the join requests window | /egb test - fill it with fake players | /egb clear")
   else
     ns:Print("unknown command - try /egb help")
   end
